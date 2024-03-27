@@ -1,0 +1,50 @@
+version: "3"
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  redis:
+      image: "redis:alpine"
+
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: "celery -A main:celery worker -l INFO"
+    depends_on:
+      - app
+      - redis
+    restart: on-failure
+    env_file:
+      - .env
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5555:5555"
+    command: "celery -A main:celery flower --address=0.0.0.0"
+    depends_on:
+      - celery
+      - redis
+    env_file:
+      - .env
+
+  webdriver:
+    image: drupalci/webdriver-chromedriver:production
+    volumes:
+      - /dev/shm:/dev/shm
+    depends_on:
+      - app
+      - celery
+      - redis
